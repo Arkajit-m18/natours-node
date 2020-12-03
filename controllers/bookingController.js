@@ -12,24 +12,31 @@ exports.getCheckoutSession = catchAsync(async (req, res, next) => {
 
   // Create checkout session
   const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card'],
     // success_url: `${req.protocol}://${req.get('host')}/my-tours/?tour=${
     //   req.params.tourId
     // }&user=${req.user.id}&price=${tour.price}`,
+    payment_method_types: ['card'],
     success_url: `${req.protocol}://${req.get('host')}/my-tours?alert=booking`,
-    cancel_url: `${req.protocol}://${req.get('host')}/tours/${tour.slug}`,
+    cancel_url: `${req.protocol}://${req.get('host')}/tour/${tour.slug}`,
     customer_email: req.user.email,
     client_reference_id: req.params.tourId,
+    mode: 'payment',
     line_items: [
       {
-        name: `${tour.name} Tour`,
-        description: tour.summary,
-        images: [
-          `${req.protocol}://${req.get('host')}/img/tours/${tour.imageCover}`,
-        ],
-        amount: tour.price * 100,
-        currency: 'usd',
         quantity: 1,
+        price_data: {
+          currency: 'usd',
+          unit_amount: tour.price * 100,
+          product_data: {
+            name: `${tour.name} Tour`,
+            description: tour.summary,
+            images: [
+              `${req.protocol}://${req.get('host')}/img/tours/${
+                tour.imageCover
+              }`,
+            ],
+          },
+        },
       },
     ],
   });
@@ -55,7 +62,7 @@ exports.getCheckoutSession = catchAsync(async (req, res, next) => {
 const createBookingCheckout = async (session) => {
   const tourId = session.client_reference_id;
   const userId = (await User.findOne({ email: session.customer_email })).id;
-  const price = session.display_items[0].amount / 100;
+  const price = session.amount_total / 100;
   await Booking.create({ tourId, userId, price });
 };
 
